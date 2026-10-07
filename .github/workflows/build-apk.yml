@@ -3,25 +3,61 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+
+permissions:
+  contents: write   # lets the workflow publish the APK as a Release
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unpack project
-        run: unzip -q farm-diary-project.zip -d project
+
+      - name: Unpack project (if the zip is in the repo)
+        run: |
+          if [ -f farm-diary-project.zip ]; then
+            rm -rf project && unzip -q farm-diary-project.zip -d project
+          fi
+
+      - name: Find the Gradle project
+        id: find
+        run: |
+          S=$(find . -name settings.gradle.kts -not -path "*/node_modules/*" | head -1)
+          if [ -z "$S" ]; then echo "No settings.gradle.kts found. Upload farm-diary-project.zip to the repo root."; exit 1; fi
+          echo "dir=$(dirname "$S")" >> "$GITHUB_OUTPUT"
+          echo "Project folder: $(dirname "$S")"
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
+
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.7"
+
       - name: Build debug APK
-        working-directory: project/FarmDiary
-        run: gradle assembleDebug --no-daemon
+        working-directory: ${{ steps.find.outputs.dir }}
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Collect the APK
+        run: |
+          mkdir -p out
+          find "${{ steps.find.outputs.dir }}" -name "*.apk" -path "*outputs*" -exec cp {} out/FarmDiary.apk \; 
+          ls -la out
+          test -s out/FarmDiary.apk || { echo "Build finished but no APK was produced"; exit 1; }
+
       - uses: actions/upload-artifact@v4
         with:
-          name: farm-diary-debug-apk
-          path: project/FarmDiary/app/build/outputs/apk/debug/app-debug.apk
- 
+          name: farm-diary-apk
+          path: out/FarmDiary.apk
+          if-no-files-found: error
+
+      # Easier on a phone: a Release page where FarmDiary.apk downloads directly.
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Farm Diary build ${{ github.run_number }}
+          files: out/FarmDiary.apk
+          prerelease: true
