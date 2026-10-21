@@ -43,14 +43,14 @@ jobs:
       - name: Collect the APK
         run: |
           mkdir -p out
-          find "${{ steps.find.outputs.dir }}" -name "*.apk" -path "*outputs*" -exec cp {} out/FarmDiary.apk \; 
+          find "${{ steps.find.outputs.dir }}" -name "*.apk" -path "*outputs*" -exec cp {} out/LayerDiary.apk \; 
           ls -la out
-          test -s out/FarmDiary.apk || { echo "Build finished but no APK was produced"; exit 1; }
+          test -s out/LayerDiary.apk || { echo "Build finished but no APK was produced"; exit 1; }
 
       - uses: actions/upload-artifact@v4
         with:
-          name: farm-diary-apk
-          path: out/FarmDiary.apk
+          name: layer-diary-apk
+          path: out/LayerDiary.apk
           if-no-files-found: error
 
       # Easier on a phone: a Release page where FarmDiary.apk downloads directly.
@@ -58,6 +58,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: Farm Diary build ${{ github.run_number }}
-          files: out/FarmDiary.apk
+          name: Layer Diary build ${{ github.run_number }}
+          files: out/LayerDiary.apk
           prerelease: true
